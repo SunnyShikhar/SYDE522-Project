@@ -35,7 +35,14 @@ def extract_deep_features(base_path=None, output_path='./img.w.deep.features.tab
 
         # Extract LBP features for image
         img = prepare_features.read_colour_img(row.img_path)
-        df.at[idx, 'deep_feature'] = get_deep_feature(model, img)
+
+        try:
+            df.at[idx, 'deep_feature'] = get_deep_feature(model, img)
+        except (KeyboardInterrupt, SystemExit):
+            raise
+        except:
+            df.at[idx, 'deep_feature'] = None
+
         images_processed += 1
 
     # Write the dataframe to disk
