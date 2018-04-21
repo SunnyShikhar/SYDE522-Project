@@ -7,6 +7,7 @@ from sklearn.metrics import r2_score, make_scorer
 from sklearn.model_selection import GridSearchCV
 from sklearn.model_selection import train_test_split
 from sklearn.svm import SVR
+from sklearn.ensemble import RandomForestRegressor
 
 logger = logging.getLogger(__name__)
 logger.setLevel(logging.INFO)
@@ -150,9 +151,67 @@ def perform_svr(X_train, y_train, X_validation, y_validation):
 
     return pred
 
+def perform_rfr(X_train, y_train, X_validation, y_validation):
+
+    rfr = RandomForestRegressor()
+
+    param_grid = {
+        'max_features': ['auto', 'sqrt', 'log2'],
+        'max_depth': np.arange(10, 110, 10),
+        'min_weight_fraction_leaf': [0.01, 0.05, 0.1, 0.15, 0.2]
+    }
+
+    X_train = np.array(X_train)
+    y_train = np.array(y_train).ravel()
+    X_validation = np.array(X_validation)
+    y_validation = np.array(y_validation).ravel()
+
+    pred = gridsearch(rfr, param_grid, X_train, y_train,
+                      X_validation, y_validation)
+
+    return pred
+
+
+def rfr_on_lbp(output_path):
+
+    """
+    Perform Random Forest Regression on LBP features.
+
+    Writes out the LBP features dataframe with two new columns:
+        - avg_beauty_score: The mean of the beauty scores available for each image
+        - predicted_score: Predicted beauty scores (only for the samples allocated to the validation set).
+
+    :param output_path: Path to save results dataframe.
+    :return: None
+    """
+
+    logger.info("\n\n\n\t\t\t*****\t\t\tWelcome to: RFR on LBP.\t\t\t*****\t\t\t\n\n\n")
+
+    # Load the LBP Feautures
+    df = pd.read_csv('../img.w.lbp.features.tab', sep="\t", index_col=False,
+                     converters={"lbp_feature": lambda x: ([float(y) for y in x.strip("[]").split(", ")])})
+
+    # Take the average of the beauty scores (this is the target variable)
+    df['avg_beauty_score'] = df.beauty_scores.apply(lambda x: np.mean(np.asarray([int(i) for i in x.split(',')])))
+    df['predicted_score'] = None
+
+    for group, data in df.groupby(['category']):
+
+        print("Training RFR models for category: " + str(group))
+        logger.info("Training RFR models for category: " + str(group))
+
+        X = pd.DataFrame(data.lbp_feature.tolist())
+        y = pd.DataFrame(data.avg_beauty_score)
+
+        (X_train, X_test, y_train, y_test) = train_test_split(X, y, test_size=0.33, random_state=42)
+
+        pred = perform_rfr(X_train, y_train, X_test, y_test)
+
+        df.ix[y_test.index.values, 'predicted_score'] = pred
+        df.to_csv(output_path)
 
 if __name__ == '__main__':
 
     output_path = '../'
     feature_file_name = input("Enter file name to save features to: ")
-    svr_on_lbp(output_path + feature_file_name + '.csv')
+    rfr_on_lbp(output_path + feature_file_name + '.csv')
