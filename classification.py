@@ -207,8 +207,8 @@ def perform_rfr(X_train, y_train, X_validation, y_validation):
 
     param_grid = {
         'max_features': ['auto', 'sqrt', 'log2'],
-        'max_depth': np.arange(10, 110, 10),
-        'min_weight_fraction_leaf': [0.01, 0.05, 0.1, 0.15, 0.2]
+        'max_depth': [None, 10, 20, 30, 40, 50, 60, 70, 80, 90, 100],
+        'min_weight_fraction_leaf': [0, 0.001, 0.005, 0.01, 0.05, 0.1, 0.15, 0.2]
     }
 
     logger.info("Param Grid: " + str(param_grid))
@@ -264,9 +264,54 @@ def rfr_on_lbp(output_path):
     # Print to CSV at the end
     df.to_csv(output_path)
 
+
+def rfr_on_deep_features(output_path, reduce=True):
+
+    logger.info("\n\n\n\t\t\t*****\t\t\tWelcome to: RFR on Deep Features.\t\t\t*****\t\t\t\n\n\n")
+
+    # Load the LBP Feautures
+    df = pd.read_pickle('../resnet.grouped.deep.features.p')
+
+    # Take the average of the beauty scores (this is the target variable)
+    df['avg_beauty_score'] = df.beauty_scores.apply(lambda x: np.mean(np.asarray([int(i) for i in x.split(',')])))
+    df['predicted_score'] = None
+
+    df = df[df.deep_feature.notnull()]
+    df['valid_deep_feature'] = df.deep_feature.apply(lambda x: not np.any(np.isnan(x)) and np.all(np.isfinite(x)))
+
+    # Remove any invalid deep features
+    df = df[df.valid_deep_feature]
+
+    for group, data in df.groupby(['category']):
+
+        print("Training RFR models for category: " + str(group))
+        logger.info("Training RFR models for category: " + str(group))
+
+        X_train = pd.DataFrame(df[df.group == 'Train'].deep_feature.tolist())
+        X_test = pd.DataFrame(df[df.group == 'Test'].deep_feature.tolist())
+
+        y_train = pd.DataFrame(df[df.group == 'Train'].avg_beauty_score)
+        y_test = pd.DataFrame(df[df.group == 'Test'].avg_beauty_score)
+
+        if reduce:
+            print("Reducing dimensionality with PCA.")
+            logger.info("Reducing dimensionality with PCA.")
+            pca = PCA(0.95)
+            pca.fit(X_train)
+            X_train = pca.transform(X_train)
+            logger.info("PCA Reduce Dimensionality to: " + str(X_train.shape[1]) + " components.")
+            X_test = pca.transform(X_test)
+            print(str(X_train.shape))
+
+        pred = perform_rfr(X_train, y_train, X_test, y_test)
+
+        df.ix[y_test.index.values, 'predicted_score'] = pred
+
+        df.to_csv(output_path)
+
 if __name__ == '__main__':
 
     output_path = '../'
     feature_file_name = input("Enter file name to save features to: ")
     # rfr_on_lbp(output_path + feature_file_name + '.csv')
-    svr_on_deep_features(output_path + feature_file_name + '.csv')
+    rfr_on_deep_features(output_path + feature_file_name + '.csv')
