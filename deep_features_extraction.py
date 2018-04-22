@@ -37,13 +37,18 @@ def extract_deep_features(category, base_path=None, output_file_name='img.w.deep
 
     total_images = df.shape[0]
     images_processed = 0
+    flag = 1
     for idx, row in df.iterrows():
         # Provide a status update if necessary
         if images_processed % 100.0 == 0:
             print(str(images_processed) + '/' + str(total_images) + ' images (i.e. ' +
                   str(np.round(images_processed / total_images, 3) * 100) + "%) complete.")
+            if flag == 1:
+                flag = 2
+            else if flag == 2:
+                flag = 1
             # Save a temporary file
-            temp_name = output_path + '.temp.' + str(images_processed) + '.complete'
+            temp_name = output_path + '.temp.' + str(flag) + '.complete'
             df.to_pickle(temp_name + '.p')
             # Write to a JSON file just in case as well
             with open(temp_name + '.json', 'w') as fp:
