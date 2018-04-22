@@ -1,3 +1,4 @@
+import json
 from keras import applications
 from keras.applications.resnet50 import preprocess_input
 import numpy as np
@@ -15,14 +16,23 @@ def get_deep_feature(model, img):
     # extract the features
     features = model.predict(preprocessed_img)
 
-    return features
+    return features[0]
 
 
-def extract_deep_features(base_path=None, output_path='./img.w.deep.features.tab'):
+def extract_deep_features(category, base_path=None, output_file_name='img.w.deep.features'):
+
+    # Write to the category-specific directory
+    if base_path is None:
+        base_path = ''
+    output_path = base_path + './deep/' + category + '/' + output_file_name
+
+    # Backup dict to store the deep features by flickr photo ID just in case
+    backup_dict = {}
 
     model = applications.resnet50.ResNet50(weights='imagenet', include_top=False, pooling='avg')
 
     df = prepare_features.load_descriptions(base_path)
+    df = df[df.category == category]
     df['deep_feature'] = None
 
     total_images = df.shape[0]
@@ -32,26 +42,35 @@ def extract_deep_features(base_path=None, output_path='./img.w.deep.features.tab
         if images_processed % 100.0 == 0:
             print(str(images_processed) + '/' + str(total_images) + ' images (i.e. ' +
                   str(np.round(images_processed / total_images, 3) * 100) + "%) complete.")
+            # Save a temporary file
+            temp_name = output_path + '.temp.' + str(images_processed) + '.complete'
+            df.to_pickle(temp_name + '.p')
+            # Write to a JSON file just in case as well
+            with open(temp_name + '.json', 'w') as fp:
+                json.dump(backup_dict, fp)
 
-        # Extract LBP features for image
+        # Extract Deep Features
         img = prepare_features.read_colour_img(row.img_path)
-
         try:
-            df.at[idx, 'deep_feature'] = get_deep_feature(model, img)
+            feature = get_deep_feature(model, img)
+            df.at[idx, 'deep_feature'] = feature
+            backup_dict[row.flickr_photo_id] = feature.tolist()
         except (KeyboardInterrupt, SystemExit):
             raise
         except:
             df.at[idx, 'deep_feature'] = None
+            backup_dict[row.flickr_photo_id] = None
 
         images_processed += 1
 
-    # Write the dataframe to disk
-    if output_path is not None:
-        df.to_csv(output_path, index=False, sep="\t")
+    # Also pickle the dataframe
+    df.to_pickle(output_path + '.p')
+    # Also write the backup dictionary to a JSON file
+    with open(output_path + '.json', 'w') as fp:
+        json.dump(backup_dict, fp)
 
     return df
 
-
 if __name__ == '__main__':
 
-    extract_deep_features()
+    extract_deep_features(category='urban')
