@@ -43,10 +43,13 @@ def extract_deep_features(category, base_path=None, output_file_name='img.w.deep
         if images_processed % 100.0 == 0:
             print(str(images_processed) + '/' + str(total_images) + ' images (i.e. ' +
                   str(np.round(images_processed / total_images, 3) * 100) + "%) complete.")
+            
+            # Switch between temp files 1 and 2
             if flag == 1:
                 flag = 2
-            else if flag == 2:
+            elif flag == 2:
                 flag = 1
+                
             # Save a temporary file
             temp_name = output_path + '.temp.' + str(flag) + '.complete'
             df.to_pickle(temp_name + '.p')
