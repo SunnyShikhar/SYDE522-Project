@@ -1,19 +1,12 @@
-"""
-Useful functions for working with image data.
-"""
-
-import pandas as pd
 import numpy as np
+import pandas as pd
 from scipy.misc import imread
+
 
 def load_descriptions(base_path=None):
 
-    """
-    Load the image descriptions from the download summary.
+    """Load the CrowdFlower features DataFrame."""
 
-    :param base_path: Path that contains the download summary and the photo directory
-    :return: descriptions dataframe
-    """
     if base_path is None: base_path = ''
 
     df = pd.read_csv(base_path + './download_summary.tsv', sep="\t", index_col=False)
@@ -24,27 +17,20 @@ def load_descriptions(base_path=None):
     df['img_path'] = df.flickr_photo_id.apply(
         lambda x: base_path + './photos/' + str(x) + '.jpg'
     )
+
     return df
 
 
 def read_colour_img(path):
 
-    """
-    Read colour image from disk.
-    :param path: Path to image
-    :return: (np.array) 2D array of image
-    """
+    """Read colour image from disk."""
 
     return imread(path, mode='RGB')
 
 
 def read_grayscale_img(path):
 
-    """
-    Read gray-scale image from disk.
-    :param path: Path to image
-    :return: (np.array) 2D array of image in gray-scale
-    """
+    """Read gray-scale image from disk."""
 
     img = imread(path, mode='F')
     img /= np.max(img)
